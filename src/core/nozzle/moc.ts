@@ -74,6 +74,8 @@ export interface MocResult {
   /** First characteristic coalescence (internal shock formation), normalized coordinates. */
   shock: { x: number; r: number } | null;
   mergedCharacteristics: number;
+  /** Wall points projected because the characteristic missed the wall (model breakdown). */
+  wallAnomalies: number;
   complete: boolean;
 }
 
@@ -186,8 +188,16 @@ export function runMoc(input: MocInput): MocResult {
       const f = (t: number) => A.r + t * s - wall(A.x + t * c).r;
       let hi = Math.max(1e-6, 0.05 * A.r);
       let guard = 0;
-      while (f(hi) < 0 && guard++ < 80) hi *= 1.6;
-      const t = f(0) >= 0 ? 0 : findRoot(f, 0, hi, 1e-13);
+      while (f(hi) < 0 && guard++ < 40) hi *= 1.6;
+      let t: number;
+      if (f(0) >= 0) t = 0;
+      else if (f(hi) >= 0) t = findRoot(f, 0, hi, 1e-13);
+      else {
+        // The C+ ray never meets the wall (flow turned away behind strong
+        // compression): project onto the wall at the next wall-point spacing.
+        anomalies++;
+        t = Math.max(1e-6, A.x - (wallPoints[wallPoints.length - 1]?.x ?? 0)) / Math.max(1e-3, c);
+      }
       x = A.x + t * c;
       const w = wall(x);
       r = w.r;
@@ -218,6 +228,7 @@ export function runMoc(input: MocInput): MocResult {
     return make(x, 0, 0, nu, -1, B.id);
   };
 
+  let anomalies = 0;
   const blend = (a: Pt, b: Pt, t: number): Pt =>
     make(a.x + t * (b.x - a.x), a.r + t * (b.r - a.r), a.th + t * (b.th - a.th), a.nu + t * (b.nu - a.nu), -1, -1);
 
@@ -240,7 +251,7 @@ export function runMoc(input: MocInput): MocResult {
       for (let i = 0; i < line.length - 1; i++) next.push(interior(line[i], line[i + 1]));
       next.push(wallPt(line[line.length - 1]));
     }
-    const nextIsFull = !isFull;
+    const nextIsFull: boolean = !isFull;
 
     // Coalescence: a fold in the radial ordering means same-family
     // characteristics crossed. Merge the offending pair (keeping boundary points).
@@ -389,6 +400,7 @@ export function runMoc(input: MocInput): MocResult {
     massBalanceError: Math.abs(mdotE - mdot) / mdot,
     shock,
     mergedCharacteristics: merged,
+    wallAnomalies: anomalies,
     complete,
   };
 }
