@@ -149,10 +149,13 @@ function torus(xc: number, rc: number, a: number, segments: number, minor = 24):
 export interface ModelOptions {
   /** Circumferential segments for revolved bodies. */
   segments?: number;
+  /** Maximum axial stations per rib sweep. */
+  ribStations?: number;
 }
 
 export function buildEngineModel(design: EngineDesign, opts: ModelOptions = {}): EnginePart[] {
   const segments = opts.segments ?? 128;
+  const ribStations = opts.ribStations ?? 120;
   const parts: EnginePart[] = [];
   const pts = profile(design);
   const cool = design.inputs.cooling;
@@ -190,6 +193,11 @@ export function buildEngineModel(design: EngineDesign, opts: ModelOptions = {}):
       let run: ProfilePoint[] = [];
       let runIndex = 0;
       const flush = () => {
+        if (run.length > ribStations) {
+          // Wall points already cluster at the throat; uniform index sampling keeps that.
+          const m = ribStations;
+          run = Array.from({ length: m }, (_, i) => run[Math.round((i * (run.length - 1)) / (m - 1))]);
+        }
         if (run.length >= 2) {
           const rings = run.map((p) => {
             const b = offset(p, p.tw - embed);

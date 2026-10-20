@@ -25,11 +25,11 @@ export interface HoverInfo {
 }
 
 const LOOKS: Record<RenderMaterial, { color: string; metalness: number; roughness: number }> = {
-  copper: { color: '#c8794a', metalness: 1, roughness: 0.3 },
-  inconel: { color: '#8f9196', metalness: 1, roughness: 0.42 },
-  steel: { color: '#b9bdc3', metalness: 1, roughness: 0.34 },
-  aluminium: { color: '#cdd2d9', metalness: 1, roughness: 0.4 },
-  niobium: { color: '#9ea4b2', metalness: 1, roughness: 0.36 },
+  copper: { color: '#c8794a', metalness: 1, roughness: 0.38 },
+  inconel: { color: '#8f9196', metalness: 1, roughness: 0.52 },
+  steel: { color: '#b9bdc3', metalness: 1, roughness: 0.46 },
+  aluminium: { color: '#cdd2d9', metalness: 1, roughness: 0.5 },
+  niobium: { color: '#9ea4b2', metalness: 1, roughness: 0.46 },
   carbon: { color: '#2a2b2f', metalness: 0.25, roughness: 0.55 },
   titanium: { color: '#a19e96', metalness: 1, roughness: 0.4 },
 };
@@ -85,6 +85,7 @@ export class EngineViewer {
   private pointer = new THREE.Vector2();
   private tempRange: [number, number] = [0, 1];
   private framed = false;
+  private framedSize = 1;
   private dirty = true;
   private active = true;
   onHover: ((h: HoverInfo | null) => void) | null = null;
@@ -100,7 +101,7 @@ export class EngineViewer {
 
     this.scene.background = new THREE.Color('#0d0e11');
     const pmrem = new THREE.PMREMGenerator(this.renderer);
-    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.12).texture;
     pmrem.dispose();
 
     const key = new THREE.DirectionalLight('#ffffff', 1.4);
@@ -223,9 +224,12 @@ export class EngineViewer {
     this.engine.add(this.plume.mesh);
     this.applyOptions();
     this.dirty = true;
-    if (!this.framed) {
+    // Re-frame on first load and whenever the engine size changes noticeably (new preset).
+    const size = design.geometry.totalLength;
+    if (!this.framed || Math.abs(size / this.framedSize - 1) > 0.25) {
       this.frame();
       this.framed = true;
+      this.framedSize = size;
     }
   }
 
@@ -271,8 +275,10 @@ export class EngineViewer {
   }
 
   setOptions(o: Partial<ViewOptions>) {
+    const ignite = o.fire === true && !this.opts.fire;
     this.opts = { ...this.opts, ...o };
     this.applyOptions();
+    if (ignite) this.frame(true);
   }
 
   private applyOptions() {
@@ -293,10 +299,11 @@ export class EngineViewer {
     this.dirty = true;
   }
 
-  frame() {
-    // Frame the hardware only (the plume and flow field are hidden helpers).
+  frame(includePlume = false) {
+    // Frame the hardware (and the plume while firing); hidden helpers are excluded.
     const box = new THREE.Box3();
     for (const ob of this.objects) box.expandByObject(ob.mesh);
+    if (includePlume && this.plume) box.expandByObject(this.plume.mesh);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
     const radius = Math.max(size.x, size.y, size.z) * 0.5;
