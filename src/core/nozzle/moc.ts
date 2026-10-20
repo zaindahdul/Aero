@@ -230,6 +230,7 @@ export function runMoc(input: MocInput): MocResult {
   let isFull = true;
   let lastWallX = 0;
   let complete = false;
+  let prevFull = line;
   while (X.length < maxPoints) {
     let next: Pt[] = [];
     if (isFull) {
@@ -277,6 +278,10 @@ export function runMoc(input: MocInput): MocResult {
 
     zipper(line, next, tris);
     if (nextIsFull) {
+      // Close the slivers along the axis and the wall between consecutive full lines.
+      tris.push(prevFull[0].id, line[0].id, next[0].id);
+      tris.push(prevFull[prevFull.length - 1].id, next[next.length - 1].id, line[line.length - 1].id);
+      prevFull = next;
       const w = next[next.length - 1];
       wallPoints.push(w);
       lastWallX = w.x;
@@ -349,7 +354,7 @@ export function runMoc(input: MocInput): MocResult {
 
   // ---------- Exit-plane profile by interpolation on the triangulated net ----------
   const tri = Uint32Array.from(tris);
-  const exitProfile = sampleExitPlane(X, R, MA, TH, tri, xExit, rExit, 48);
+  const exitProfile = sampleAtX(X, R, MA, TH, tri, xExit, rExit, 48);
   let mdotE = 0;
   let fE = 0;
   for (let k = 0; k + 1 < exitProfile.r.length; k++) {
@@ -407,11 +412,12 @@ function zipper(a: Pt[], b: Pt[], out: number[]) {
   }
 }
 
-function sampleExitPlane(
-  X: number[],
-  R: number[],
-  M: number[],
-  TH: number[],
+/** Samples Mach number and flow angle along the plane x = xe, r in [0, re], from the triangulated net. */
+export function sampleAtX(
+  X: ArrayLike<number>,
+  R: ArrayLike<number>,
+  M: ArrayLike<number>,
+  TH: ArrayLike<number>,
   tri: Uint32Array,
   xe: number,
   re: number,
@@ -427,10 +433,11 @@ function sampleExitPlane(
     if (lo <= xe && hi >= xe) cand.push(t);
   }
   const out = { r: [] as number[], mach: [] as number[], theta: [] as number[], pressure: [] as number[] };
-  let lastM = M[0];
-  let lastTh = 0;
   for (let k = 0; k <= n; k++) {
-    const rr = re * (k / n) * (1 - 1e-9);
+    const rr = re * Math.min(1 - 1e-9, Math.max(1e-9, k / n));
+    let found = false;
+    let mVal = 0;
+    let thVal = 0;
     for (const t of cand) {
       const a = tri[t];
       const b = tri[t + 1];
@@ -441,15 +448,30 @@ function sampleExitPlane(
       const l2 = ((R[c] - R[a]) * (xe - X[c]) + (X[a] - X[c]) * (rr - R[c])) / d;
       const l3 = 1 - l1 - l2;
       if (l1 >= -1e-9 && l2 >= -1e-9 && l3 >= -1e-9) {
-        lastM = l1 * M[a] + l2 * M[b] + l3 * M[c];
-        lastTh = l1 * TH[a] + l2 * TH[b] + l3 * TH[c];
+        mVal = l1 * M[a] + l2 * M[b] + l3 * M[c];
+        thVal = l1 * TH[a] + l2 * TH[b] + l3 * TH[c];
+        found = true;
         break;
       }
     }
-    // Outside the net (only possible at the lip) the nearest value is held.
+    if (!found) {
+      // Outside the net (slivers from merged characteristics): nearest candidate vertex.
+      let best = Infinity;
+      for (const t of cand) {
+        for (let q = 0; q < 3; q++) {
+          const v = tri[t + q];
+          const d = (X[v] - xe) ** 2 + (R[v] - rr) ** 2;
+          if (d < best) {
+            best = d;
+            mVal = M[v];
+            thVal = TH[v];
+          }
+        }
+      }
+    }
     out.r.push(rr);
-    out.mach.push(lastM);
-    out.theta.push(lastTh);
+    out.mach.push(mVal);
+    out.theta.push(thVal);
   }
   return out;
 }
