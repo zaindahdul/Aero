@@ -20,7 +20,7 @@ export interface Species {
   ranges: Nasa9Range[];
 }
 
-export const GAS_SPECIES: readonly Species[] = (data as { species: Species[] }).species;
+export const GAS_SPECIES: readonly Species[] = (data as unknown as { species: Species[] }).species;
 
 const byName = new Map(GAS_SPECIES.map((s) => [s.name, s]));
 export function getSpecies(name: string): Species {
