@@ -1,3 +1,4 @@
+import { DEFAULT_CYCLE } from './cycle';
 import type { EngineInputs } from './design';
 
 const bar = 1e5;
@@ -38,6 +39,7 @@ const base: Omit<EngineInputs, 'name' | 'oxidizer' | 'fuel' | 'of' | 'pc' | 'thr
     barrierMixtureRatio: 1,
   },
   injector: { pressureDropFraction: 0.2, elements: 120, dischargeCoefficient: 0.7 },
+  cycle: DEFAULT_CYCLE,
   numerics: { stations: 220, mocResolution: 36, eulerCells: 64 },
 };
 
@@ -67,7 +69,7 @@ export const PRESETS: Preset[] = [
       cooling: {
         ...base.cooling,
         inletTemperature: 115,
-        inletPressure: 330 * bar,
+        inletPressure: 590 * bar,
         channels: 360,
         maxChannelWidth: 3 * mm,
         ribWidth: 1.0 * mm,
@@ -80,6 +82,7 @@ export const PRESETS: Preset[] = [
         barrierMixtureRatio: 1.6,
       },
       injector: { ...base.injector, elements: 300 },
+      cycle: { ...DEFAULT_CYCLE, kind: 'full-flow', turbineInletTemperature: 850, turbineEfficiency: 0.75, pumpEfficiency: 0.75 },
     },
   },
   {
@@ -114,6 +117,7 @@ export const PRESETS: Preset[] = [
         barrierMixtureRatio: 0.7,
       },
       injector: { ...base.injector, elements: 260 },
+      cycle: { ...DEFAULT_CYCLE, kind: 'gas-generator', turbineInletTemperature: 900, ggPressureRatio: 16, turbineEfficiency: 0.6 },
     },
   },
   {
@@ -149,6 +153,7 @@ export const PRESETS: Preset[] = [
         jacketThickness: 2 * mm,
       },
       injector: { ...base.injector, elements: 180 },
+      cycle: { ...DEFAULT_CYCLE, kind: 'expander', turbineEfficiency: 0.75, pumpEfficiency: 0.7 },
     },
   },
   {
@@ -183,6 +188,7 @@ export const PRESETS: Preset[] = [
         roughness: 15e-6,
       },
       injector: { ...base.injector, elements: 24 },
+      cycle: { ...DEFAULT_CYCLE, kind: 'pressure-fed' },
     },
   },
   {
@@ -203,6 +209,7 @@ export const PRESETS: Preset[] = [
       nozzle: { ...base.nozzle, lengthFraction: 0.9 },
       cooling: { ...base.cooling, mode: 'radiative', barrierFraction: 0.2, barrierMixtureRatio: 0.45 },
       injector: { ...base.injector, elements: 8 },
+      cycle: { ...DEFAULT_CYCLE, kind: 'pressure-fed' },
     },
   },
 ];

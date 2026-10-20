@@ -47,6 +47,8 @@ export class Fluid {
   readonly Pcrit: number;
   readonly tmin: number;
   readonly tmax: number;
+  /** Molar mass, kg/mol. */
+  readonly molarMass: number;
   private readonly T: number[];
   private readonly lnP0: number;
   private readonly dlnP: number;
@@ -65,6 +67,7 @@ export class Fluid {
     this.nP = raw.P.length;
     this.tmin = raw.T[0];
     this.tmax = raw.T[this.nT - 1];
+    this.molarMass = raw.molarMass;
     this.lnP0 = Math.log(raw.P[0]);
     this.dlnP = (Math.log(raw.P[this.nP - 1]) - this.lnP0) / (this.nP - 1);
     this.grid = {

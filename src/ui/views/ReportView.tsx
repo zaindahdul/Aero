@@ -70,6 +70,9 @@ export function ReportView({ design, onSnapshot }: { design: EngineDesign; onSna
     ['Peak wall temperature · heat flux', `${fmt(t.maxWallTemperature, 0)} K · ${fmt(t.maxHeatFlux / 1e6, 1)} MW/m²`],
     ...(regen ? ([['Coolant Δp · outlet temperature', `${bar(t.pressureDrop)} bar · ${fmt(t.outletTemperature, 0)} K`]] as [string, string][]) : []),
     ['Injector elements · orifices (ox / fuel)', `${design.injector.elements} · ${mm(design.injector.oxidizerOrificeDiameter, 2)} / ${mm(design.injector.fuelOrificeDiameter, 2)} mm`],
+    ...(design.cycle
+      ? ([['Engine cycle', `${design.cycle.kind.replace('-', ' ')} · ${design.cycle.closes ? 'closes' : 'does not close'} · Isp ${fmt(design.cycle.ispVac, 1)} s`]] as [string, string][])
+      : []),
     ['Chamber assembly mass', `${fmt(design.mass.total, design.mass.total < 10 ? 2 : 0)} kg`],
   ];
 

@@ -5,6 +5,7 @@
  * Everything returned is plain data so it can cross a worker boundary.
  */
 import { ambientPressure } from './atmosphere';
+import { type CycleInputs, type CycleResult, analyzeCycle } from './cycle';
 import { G0 } from './constants';
 import { type CoolantId } from './fluids/fluids';
 import { analyzeNozzle } from './nozzle/analysis';
@@ -78,6 +79,7 @@ export interface EngineInputs {
     barrierMixtureRatio: number;
   };
   injector: { pressureDropFraction: number; elements: number; dischargeCoefficient: number };
+  cycle: CycleInputs;
   numerics: { stations: number; mocResolution: number; eulerCells: number };
 }
 
@@ -191,6 +193,8 @@ export interface EngineDesign {
   };
   altitude: { altitude: number; pa: number; thrust: number; isp: number; separated: boolean }[];
   mass: { liner: number; jacket: number; extension: number; injector: number; total: number };
+  /** Turbopump power balance for the selected engine cycle. */
+  cycle: CycleResult | null;
   /** Chamber acoustic modes (closed-closed cylinder, frozen sound speed) for stability screening. */
   acoustics: { soundSpeed: number; length: number; radius: number; modes: { name: string; frequency: number }[] };
   warnings: string[];
@@ -575,10 +579,19 @@ export function designEngine(inputs: EngineInputs): EngineDesign {
     injector,
     altitude,
     mass,
+    cycle: null,
     acoustics,
     warnings,
     timings,
   };
+  const t3 = now();
+  try {
+    design.cycle = analyzeCycle(design, inputs.cycle);
+    if (!design.cycle.closes) warnings.push(`The ${inputs.cycle.kind.replace('-', ' ')} cycle does not close: ${design.cycle.notes[design.cycle.notes.length - 1] ?? 'insufficient turbine power.'}`);
+  } catch (e) {
+    warnings.push(`Cycle analysis failed: ${(e as Error).message}`);
+  }
+  timings.cycle = now() - t3;
   timings.total = now() - t0;
   return design;
 }

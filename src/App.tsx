@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { EngineDesign, EngineInputs } from './core/design';
+import { CYCLE_SHORT } from './core/cycle';
 import { PRESETS } from './core/presets';
 import { stoichiometricOF, PROPELLANTS } from './core/thermo/propellants';
 import { EngineClient, SupersededError, type SweepPoint } from './ui/engineClient';
@@ -7,6 +8,7 @@ import { exportCSV, exportDXF, exportJSON, exportPNG, exportSTL } from './ui/exp
 import { bar, fmt, force, massFlow, mm, pct } from './ui/format';
 import { Sidebar } from './ui/Sidebar';
 import type { EngineViewer } from './ui/viewer/EngineViewer';
+import { CycleView } from './ui/views/CycleView';
 import { ModelView } from './ui/views/ModelView';
 import { NozzleView } from './ui/views/NozzleView';
 import { PerformanceView } from './ui/views/PerformanceView';
@@ -20,6 +22,7 @@ const TABS = [
   { id: 'nozzle', label: 'Nozzle Flow' },
   { id: 'thermal', label: 'Thermal' },
   { id: 'structures', label: 'Structures' },
+  { id: 'cycle', label: 'Engine Cycle' },
   { id: 'report', label: 'Report & Export' },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
@@ -178,6 +181,7 @@ export default function App() {
                     {tab === 'nozzle' && <NozzleView design={design} />}
                     {tab === 'thermal' && <ThermalView design={design} />}
                     {tab === 'structures' && <StructuresView design={design} />}
+                    {tab === 'cycle' && <CycleView design={design} inputs={inputs} onChange={setInputs} />}
                     {tab === 'report' && <ReportView design={design} onSnapshot={snapshot} />}
                   </div>
                 )}
@@ -203,8 +207,7 @@ function Kpis({ design }: { design: EngineDesign }) {
       <Kpi label="Isp · vacuum" value={fmt(p.ispVac, 1)} unit="s" sub={`ideal ${fmt(p.ispVacIdeal, 1)} s`} />
       <Kpi label="Isp · sea level" value={p.thrustSeaLevel > 0 ? fmt(p.ispSeaLevel, 1) : 'n/a'} unit={p.thrustSeaLevel > 0 ? 's' : ''} sub={p.separatedAtSeaLevel ? 'separated at SL' : `ε ${fmt(p.eps, 1)}`} />
       <Kpi label="Chamber temp." value={fmt(design.thermo.chamber.T, 0)} unit="K" sub={`c* ${fmt(p.cstar, 0)} m/s`} />
-      <Kpi label="Mass flow" value={md.value} unit={md.unit} sub={`O/F ${fmt(design.inputs.of, 2)}`} />
-      <Kpi label="Throat diameter" value={mm(design.geometry.throatDiameter, 1)} unit="mm" sub={`exit ${mm(design.geometry.exitDiameter, 0)} mm`} />
+      <Kpi label="Mass flow" value={md.value} unit={md.unit} sub={`O/F ${fmt(design.inputs.of, 2)} · Dt ${mm(design.geometry.throatDiameter, 0)} mm`} />
       <Kpi label="Nozzle efficiency" value={pct(p.nozzleEfficiency, 2)} unit="%" sub={design.nozzleFlow.optimized ? 'TOP bell, optimized' : design.inputs.nozzle.kind} />
       <Kpi
         label="Peak wall temp."
@@ -215,6 +218,19 @@ function Kpis({ design }: { design: EngineDesign }) {
             <StatusIcon level={hot ? 'critical' : t.maxTemperatureRatio > 0.92 ? 'warning' : 'good'} />
             {fmt(t.maxTemperatureRatio * 100, 0)} % of limit
           </span>
+        }
+      />
+      <Kpi
+        label="Engine cycle"
+        value={design.cycle ? (design.cycle.closes ? 'Closes' : 'Open') : '–'}
+        unit=""
+        sub={
+          design.cycle ? (
+            <span style={{ display: 'inline-flex', gap: 5, alignItems: 'center' }}>
+              <StatusIcon level={design.cycle.closes ? 'good' : 'critical'} />
+              {CYCLE_SHORT[design.cycle.kind]}
+            </span>
+          ) : undefined
         }
       />
       <Kpi label={design.coolant ? 'Coolant Δp' : 'Cooling'} value={design.coolant ? bar(t.pressureDrop) : 'Radiative'} unit={design.coolant ? 'bar' : ''} sub={design.coolant ? `${fmt(t.outletTemperature, 0)} K outlet` : `${fmt(t.maxHeatFlux / 1e6, 2)} MW/m² peak`} />
