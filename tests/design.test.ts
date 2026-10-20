@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { G0 } from '../src/core/constants';
-import { designEngine, mixtureRatioSweep } from '../src/core/design';
+import { chamberAcoustics, designEngine, mixtureRatioSweep } from '../src/core/design';
 import { getFluid } from '../src/core/fluids/fluids';
 import { PRESETS } from '../src/core/presets';
 
@@ -48,6 +48,15 @@ describe('end-to-end engine design', () => {
       }
     });
   }
+
+  it('chamber acoustic modes follow the closed-cylinder solution', () => {
+    const ac = chamberAcoustics(1200, 0.4, 0.1);
+    const f = Object.fromEntries(ac.modes.map((m) => [m.name, m.frequency]));
+    expect(f['1L']).toBeCloseTo(1500, 6);
+    expect(f['1T']).toBeCloseTo((1.8412 * 1200) / (2 * Math.PI * 0.1), 6);
+    expect(f['1T1L']).toBeCloseTo(Math.hypot(f['1T'], f['1L']), 6);
+    for (let i = 1; i < ac.modes.length; i++) expect(ac.modes[i].frequency).toBeGreaterThanOrEqual(ac.modes[i - 1].frequency);
+  });
 
   it('Isp peaks fuel-rich of stoichiometric for LOX/LH2', () => {
     const sweep = mixtureRatioSweep('LOX', 'LH2', 70e5, 40, false, 2.5, 8.5, 25);

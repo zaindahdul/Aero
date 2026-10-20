@@ -126,6 +126,31 @@ export function PerformanceView({ design, sweep }: { design: EngineDesign; sweep
             </tbody>
           </table>
         </ChartCard>
+        <ChartCard
+          title="Chamber acoustic modes"
+          caption={`Closed-cylinder resonances (L ${fmt(design.acoustics.length * 1e3, 0)} mm, Ø ${fmt(design.acoustics.radius * 2e3, 0)} mm, frozen a = ${fmt(design.acoustics.soundSpeed, 0)} m/s); high-frequency instability usually couples to 1T`}
+        >
+          <table className="data">
+            <thead>
+              <tr>
+                {design.acoustics.modes.map((m) => (
+                  <th key={m.name} style={{ textAlign: 'right' }}>
+                    {m.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                {design.acoustics.modes.map((m) => (
+                  <td key={m.name} style={{ textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
+                    {m.frequency >= 1e4 ? `${fmt(m.frequency / 1e3, 1)} kHz` : `${fmt(m.frequency, 0)} Hz`}
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </ChartCard>
         <ChartCard title="Chamber and exit composition" caption="Mole fractions of the ten most abundant species">
           <BarChart
             categories={speciesNames.map(species)}

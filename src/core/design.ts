@@ -191,6 +191,8 @@ export interface EngineDesign {
   };
   altitude: { altitude: number; pa: number; thrust: number; isp: number; separated: boolean }[];
   mass: { liner: number; jacket: number; extension: number; injector: number; total: number };
+  /** Chamber acoustic modes (closed-closed cylinder, frozen sound speed) for stability screening. */
+  acoustics: { soundSpeed: number; length: number; radius: number; modes: { name: string; frequency: number }[] };
   warnings: string[];
   timings: Record<string, number>;
 }
@@ -354,7 +356,9 @@ export function designEngine(inputs: EngineInputs): EngineDesign {
   // ---- Sizing: F = At [Cd eta_n Cf_vac Pc - pa eps] ----
   const cfVac = cd * etaN * ideal.cfVac;
   const at = inputs.thrust / (inputs.pc * cfVac - inputs.thrustAmbient * eps);
-  if (!(at > 0)) throw new Error('Thrust target is not achievable at this ambient pressure (nozzle would produce negative thrust).');
+  if (!(at > 0)) {
+    throw new Error('Thrust target is not achievable: at this ambient pressure the nozzle is so over-expanded that it produces no net thrust. Reduce the area ratio or rate the thrust in vacuum.');
+  }
   const rt = Math.sqrt(at / Math.PI);
   const cstar = inputs.cstarEfficiency * ideal.cstar;
   const massFlow = (cd * inputs.pc * at) / cstar;
@@ -488,6 +492,8 @@ export function designEngine(inputs: EngineInputs): EngineDesign {
     total: thermal.linerMass + thermal.jacketMass + thermal.extensionMass + injectorMass,
   };
 
+  const acoustics = chamberAcoustics(ideal.chamber.aFr, -contour.xInjector, contour.rc);
+
   const sl = 101325;
   const design: EngineDesign = {
     inputs,
@@ -569,11 +575,36 @@ export function designEngine(inputs: EngineInputs): EngineDesign {
     injector,
     altitude,
     mass,
+    acoustics,
     warnings,
     timings,
   };
   timings.total = now() - t0;
   return design;
+}
+
+/**
+ * Acoustic resonances of the combustion chamber modelled as a closed cylinder
+ * (injector face to throat): f = (a / 2) sqrt((n / L)^2 + (alpha_mn / (pi R))^2),
+ * with alpha_mn the roots of J'_m (transverse modes). High-frequency
+ * instability usually couples to the first tangential mode.
+ */
+export function chamberAcoustics(a: number, length: number, radius: number) {
+  const transverse: [string, number][] = [
+    ['1T', 1.8412],
+    ['2T', 3.0542],
+    ['1R', 3.8317],
+    ['3T', 4.2012],
+  ];
+  const modes: { name: string; frequency: number }[] = [
+    { name: '1L', frequency: a / (2 * length) },
+    { name: '2L', frequency: a / length },
+  ];
+  for (const [name, alpha] of transverse) modes.push({ name, frequency: (alpha * a) / (2 * Math.PI * radius) });
+  const f1T = modes[2].frequency;
+  modes.push({ name: '1T1L', frequency: Math.hypot(f1T, modes[0].frequency) });
+  modes.sort((x, y) => x.frequency - y.frequency);
+  return { soundSpeed: a, length, radius, modes };
 }
 
 /** Ideal performance across mixture ratios at fixed chamber pressure and area ratio. */
