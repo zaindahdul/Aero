@@ -35,7 +35,7 @@ Propellants, O/F, Pc, thrust
                           → STL · DXF · CSV · JSON
 ```
 
-A complete design (chemistry, contour optimization with 30 to 60 full flow solutions, cooling and structures) solves in 0.5 to 2 seconds in a Web Worker, so the UI stays live while you drag sliders.
+A complete design (chemistry, contour optimization with 30 to 60 full flow solutions, cooling and structures) solves in 0.5 to 2 seconds in a Web Worker, so the UI stays live while you drag sliders. Every design can be shared as a link that reopens it exactly, inputs encoded in the URL.
 
 ## Engineering depth
 
@@ -70,7 +70,7 @@ A complete design (chemistry, contour optimization with 30 to 60 full flow solut
 
 ## Verification
 
-Each row is enforced by `npm test` (312 tests), which runs on every push in CI.
+Each row is enforced by `npm test` (314 tests), which runs on every push in CI.
 
 | Model | Reference | Result |
 |---|---|---|
@@ -109,7 +109,7 @@ Each row is enforced by `npm test` (312 tests), which runs on every push in CI.
 ```bash
 npm install
 npm run dev      # http://localhost:5173
-npm test         # 312 verification tests
+npm test         # 314 verification tests
 npm run build    # static production build in dist/
 ```
 

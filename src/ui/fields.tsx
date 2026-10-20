@@ -79,7 +79,7 @@ export function SelectField<T extends string>({
 }) {
   const id = useId();
   return (
-    <div className="field">
+    <div className="field wide">
       <label htmlFor={id}>{label}</label>
       <select id={id} className="select" value={value} onChange={(e) => onChange(e.target.value as T)}>
         {options.map((o) => (

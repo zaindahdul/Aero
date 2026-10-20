@@ -6,6 +6,7 @@ import { stoichiometricOF, PROPELLANTS } from './core/thermo/propellants';
 import { EngineClient, SupersededError, type SweepPoint } from './ui/engineClient';
 import { exportCSV, exportDXF, exportJSON, exportPNG, exportSTL } from './ui/exports';
 import { bar, fmt, force, massFlow, mm, pct } from './ui/format';
+import { decodeDesign, encodeDesign } from './ui/share';
 import { Sidebar } from './ui/Sidebar';
 import type { EngineViewer } from './ui/viewer/EngineViewer';
 import { CycleView } from './ui/views/CycleView';
@@ -29,8 +30,11 @@ type TabId = (typeof TABS)[number]['id'];
 
 export default function App() {
   const client = useMemo(() => new EngineClient(), []);
-  const [presetId, setPresetId] = useState(PRESETS[0].id);
-  const [inputs, setInputs] = useState<EngineInputs>(PRESETS[0].inputs);
+  const shared = useMemo(() => decodeDesign(window.location.hash), []);
+  const [presetId, setPresetId] = useState(shared ? 'custom' : PRESETS[0].id);
+  const [inputs, setInputs] = useState<EngineInputs>(shared ?? PRESETS[0].inputs);
+  const [copied, setCopied] = useState(false);
+  const preset = PRESETS.find((p) => p.inputs === inputs);
   const [design, setDesign] = useState<EngineDesign | null>(null);
   const [sweep, setSweep] = useState<SweepPoint[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -94,13 +98,13 @@ export default function App() {
           LAVAL
           <small>Liquid rocket engine design suite</small>
         </div>
-        <select className="select" style={{ width: 230 }} value={presetId} onChange={(e) => loadPreset(e.target.value)} aria-label="Preset">
+        <select className="select" style={{ width: 230 }} value={preset ? presetId : 'custom'} onChange={(e) => e.target.value !== 'custom' && loadPreset(e.target.value)} aria-label="Preset">
           {PRESETS.map((p) => (
             <option key={p.id} value={p.id}>
               {p.label}
             </option>
           ))}
-          {!PRESETS.some((p) => p.inputs === inputs) && <option value={presetId}>Custom (modified)</option>}
+          {!preset && <option value="custom">Custom design</option>}
         </select>
         <div className="spacer" />
         <span className="status-pill" role="status" aria-live="polite">
@@ -138,6 +142,23 @@ export default function App() {
             </div>
           )}
         </div>
+        <button
+          className="ghost"
+          title="Copy a link that reopens this exact design"
+          onClick={() => {
+            const url = `${window.location.origin}${window.location.pathname}${encodeDesign(inputs)}`;
+            window.history.replaceState(null, '', url);
+            navigator.clipboard?.writeText(url).then(
+              () => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1600);
+              },
+              () => undefined,
+            );
+          }}
+        >
+          {copied ? 'Link copied' : 'Share'}
+        </button>
         <a className="ghost" href="https://github.com/zaindahdul/Aero" target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
           Source
         </a>
