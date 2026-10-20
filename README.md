@@ -1,8 +1,10 @@
 # Laval: liquid rocket engine design suite
 
+[![CI](https://github.com/zaindahdul/Aero/actions/workflows/ci.yml/badge.svg)](https://github.com/zaindahdul/Aero/actions/workflows/ci.yml)
+
 **From propellant chemistry to a 3D-printable regeneratively cooled thrust chamber, in the browser.**
 
-Laval designs a complete liquid rocket thrust chamber from a handful of requirements (propellants, thrust, chamber pressure). It solves the combustion chemistry, sizes the chamber, optimizes and analyzes the supersonic nozzle flow, designs the regenerative cooling channels, checks structural margins, and generates a watertight solid model you can export to STL or DXF. Every stage is a physics model written from the governing equations and verified against reference solutions: NASA CEA, exact gas-dynamics solutions, and CoolProp.
+Laval designs a complete liquid rocket thrust chamber from a handful of requirements (propellants, thrust, chamber pressure). It solves the combustion chemistry, sizes the chamber, optimizes and analyzes the supersonic nozzle flow, designs the regenerative cooling channels, checks structural margins, closes the turbopump power cycle, and generates a watertight solid model you can export to STL or DXF. Every stage is a physics model written from the governing equations and verified against reference solutions: NASA CEA, exact gas-dynamics solutions, and CoolProp.
 
 ![Methalox booster in half-section with the supersonic Mach field](docs/screenshots/hero.png)
 
@@ -25,6 +27,9 @@ Propellants, O/F, Pc, thrust
  Regenerative cooling ─── Bartz gas side · CoolProp coolant · finned channels that bifurcate
         │                 liner and jacket auto-sized for safety factors · barrier film
         │                 radiation-cooled nozzle extension
+        ▼
+ Engine cycle ─────────── pressure-fed · gas generator · expander · staged · full-flow
+        │                 turbopump power balance, preburner chemistry, pressure ladder
         ▼
  Solid model ──────────── watertight liner, instanced ribs, jacket, manifolds, injector
                           → STL · DXF · CSV · JSON
@@ -53,6 +58,11 @@ A complete design (chemistry, contour optimization with 30 to 60 full flow solut
 - Radiation-cooled extensions and radiatively cooled engines use the wall energy balance h_g(T_aw − T_w) = εσT_w⁴.
 - Checks for coking, boiling, material limits and injector pressure budget.
 
+### Engine cycle
+- Pressure-fed, gas-generator, closed-expander, single-shaft staged combustion (fuel-rich, or oxidizer-rich for kerosene) and full-flow staged combustion, built on the converged chamber design.
+- Gas-generator and preburner mixture ratios come from the equilibrium solver at the turbine-inlet temperature limit. Expander turbine power comes from the coolant's regen heat pickup. Staged-combustion turbine pressure ratios are found as the lowest root of the power balance, since a higher turbine pressure ratio also raises pump discharge pressure.
+- The results reproduce known cycle behaviour from first principles. The hydrolox expander closes with about 28 % margin at a 240–250 K, PR ≈ 1.5 turbine. A 200 bar methalox engine closes as full-flow staged combustion but not as single-shaft fuel-rich, because methane-rich gas (γ ≈ 1.15) yields too little work per unit pressure ratio. The kerolox gas generator burns 7 % of the propellant and costs 14 s of Isp.
+
 ### CAD kernel
 - Revolved shells with normal-offset layers, swept rib solids (one geometry per bifurcation level, instanced by rotation), auto-sized jacket, manifolds, injector plate, dome and element posts.
 - Every body is verified watertight and outward-oriented in the test suite.
@@ -60,7 +70,7 @@ A complete design (chemistry, contour optimization with 30 to 60 full flow solut
 
 ## Verification
 
-Each row is enforced by `npm test` (304 tests).
+Each row is enforced by `npm test` (312 tests), which runs on every push in CI.
 
 | Model | Reference | Result |
 |---|---|---|
@@ -71,6 +81,8 @@ Each row is enforced by `npm test` (304 tests).
 | Bell optimizer | Rao's TOP charts | Optimal angles inside the published band; longer bells strictly better |
 | Coolant properties | CoolProp | ρ within 1 %, cp within 3 % near the pseudo-critical line, μ and k within 2 % |
 | Engine pipeline | Conservation laws | F = ṁ·Isp·g0 exactly; coolant Q = ṁΔh within 2 %; all five presets inside material limits |
+| Engine cycles | Power balance and known cycle behaviour | Turbine power = pump power to 1e-6; expander heat-limited with Pc; full-flow closes where single-shaft methane cannot |
+| Robustness | 40 randomized designs | Every case solves or fails with an actionable message; no non-finite results |
 | Solid model | Closed-manifold and volume checks | Watertight, outward-oriented bodies; mass within 6 % of the thermal model |
 
 ## Screenshots
@@ -80,23 +92,24 @@ Each row is enforced by `npm test` (304 tests).
 | ![Flow field](docs/screenshots/nozzle-flow.png) **Nozzle flow**: characteristic net (upper half) over the Mach field, internal shock origin marked | ![Thermal](docs/screenshots/thermal.png) **Thermal**: wall and coolant temperatures, heat flux and transfer coefficients along the chamber |
 | ![Hot fire](docs/screenshots/hot-fire.png) **Hot fire**: plume colour from propellant chemistry, shock-cell spacing from the exit Mach number | ![Heat map](docs/screenshots/heat-map.png) **Radiation-cooled apogee engine**: barrier-cooled niobium wall temperature with the flow field inside |
 | ![Performance](docs/screenshots/performance.png) **Performance**: CEA-style state table, species, O/F and altitude sweeps | ![Hydrolox](docs/screenshots/hydrolox-extension.png) **Hydrolox upper stage**: carbon-carbon extension at 1900 K above a hydrogen-cooled jacket |
+| ![Full-flow cycle](docs/screenshots/engine-cycle.png) **Full-flow staged combustion**: two preburners, pressure ladder from 547 bar pump discharge to the chamber | ![Expander cycle](docs/screenshots/expander-cycle.png) **Closed expander**: turbine driven by regen heat, closing with 28 % margin |
 
 ## Presets
 
-| Preset | Propellants | Thrust | Pc | Notable |
-|---|---|---|---|---|
-| Methalox booster | LOX / CH4 | 2.2 MN (SL) | 200 bar | 360 high-aspect-ratio channels, 3 bifurcations, 3 % barrier film |
-| Kerolox booster | LOX / RP-1 | 850 kN (SL) | 97 bar | CuCrZr liner kept below the RP-1 coking limit |
-| Hydrolox upper stage | LOX / LH2 | 110 kN (vac) | 44 bar | Regen to ε 45, radiation-cooled C/C extension to ε 84 |
-| Student 5 kN ethanol | LOX / ethanol | 5 kN (SL) | 20 bar | Ideally expanded at sea level, supercritical ethanol coolant |
-| Hypergolic apogee | N2O4 / MMH | 450 N (vac) | 10 bar | Fully radiation cooled, niobium wall with barrier cooling |
+| Preset | Propellants | Thrust | Pc | Cycle | Notable |
+|---|---|---|---|---|---|
+| Methalox booster | LOX / CH4 | 2.2 MN (SL) | 200 bar | Full-flow staged | 360 high-aspect-ratio channels, 3 bifurcations, 590 bar coolant |
+| Kerolox booster | LOX / RP-1 | 850 kN (SL) | 97 bar | Gas generator | CuCrZr liner kept below the RP-1 coking limit |
+| Hydrolox upper stage | LOX / LH2 | 110 kN (vac) | 44 bar | Closed expander | Regen to ε 45, radiation-cooled C/C extension to ε 84 |
+| Student 5 kN ethanol | LOX / ethanol | 5 kN (SL) | 20 bar | Pressure-fed | Ideally expanded at sea level, supercritical ethanol coolant |
+| Hypergolic apogee | N2O4 / MMH | 450 N (vac) | 10 bar | Pressure-fed | Fully radiation cooled, niobium wall with barrier cooling |
 
 ## Running it
 
 ```bash
 npm install
 npm run dev      # http://localhost:5173
-npm test         # 304 verification tests
+npm test         # 312 verification tests
 npm run build    # static production build in dist/
 ```
 
@@ -118,6 +131,7 @@ src/core/                     pure TypeScript physics, no DOM
   nozzle/                     contour, MoC, Euler space-march, hybrid analysis, optimizer
   thermal/                    regenerative / radiative cooling and structures, materials
   fluids/                     CoolProp coolant tables
+  cycle.ts                    turbopump power-cycle balance
   cad/                        mesh kernel, engine solid model, STL / DXF / CSV export
   design.ts                   end-to-end pipeline
 src/worker/                   solver Web Worker
@@ -135,6 +149,7 @@ Laval is a preliminary-design tool. These assumptions are deliberate, and each o
 - Bartz is an empirical correlation (typically ±20–30 % at the throat); a multiplier is exposed for calibration. Two-phase coolant boiling is flagged, not modelled.
 - Stresses are analytic (channel-span plate bending, through-wall thermal stress, thin-shell hoop), not finite elements. Material data are representative handbook values.
 - Injector sizing is first-order (orifice equation).
+- Cycle turbomachinery uses constant efficiencies, incompressible pumps and perfect-gas turbines at the turbine-inlet state, with no turbopump maps or transients.
 
 ## References
 
